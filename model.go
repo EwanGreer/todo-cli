@@ -117,8 +117,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "ctrl+c", "q":
-
 			return m, tea.Quit
+		case "?":
+			// TODO: implement me - tutorial on bubbletea github
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -142,7 +143,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 			}
-			return m, func() tea.Msg {
+			return m, func() tea.Msg { // NOTE: this is used to force a screen update
 				return tea.WindowSizeMsg{Width: m.width, Height: m.height}
 			}
 		}
