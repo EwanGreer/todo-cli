@@ -21,6 +21,8 @@ type model struct {
 	choices []database.Task
 	db      *database.Database
 	cursor  int
+	width   int
+	height  int
 }
 
 func initialModel(db *database.Database) model {
@@ -38,7 +40,6 @@ func initialModel(db *database.Database) model {
 }
 
 func (m model) Init() tea.Cmd {
-	// TODO: should I be saving state here every loop, or does this only load on startup?
 	return nil
 }
 
@@ -78,6 +79,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.db.Save(&m.choices[m.cursor])
 		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	}
 
 	return m, nil
@@ -106,6 +110,5 @@ func (m model) View() string {
 	instructions := "Press `q` to quit."
 
 	view := lipgloss.JoinVertical(lipgloss.Left, header, lipgloss.JoinVertical(lipgloss.Left, items...), instructions)
-
-	return mainStyle.Render(view)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
 }

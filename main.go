@@ -25,7 +25,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	p := tea.NewProgram(initialModel(db))
+	p := tea.NewProgram(initialModel(db), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
