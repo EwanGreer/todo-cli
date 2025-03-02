@@ -20,7 +20,7 @@ const (
 
 var (
 	textColor         = lipgloss.Color("#FAFAFA")
-	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5FAF"))
 
 	mainStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 2, 0, 1)
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(textColor).Padding(0, 1)
@@ -33,12 +33,11 @@ type model struct {
 	cursor  int
 	width   int
 	height  int
-	adding  bool
 	mode    Mode
 	ti      textinput.Model
 }
 
-func initialModel(db *database.Database) model {
+func initialModel(db *database.Database) *model {
 	ti := textinput.New()
 	ti.Placeholder = "Enter new todo..."
 	ti.CharLimit = 100
@@ -50,10 +49,9 @@ func initialModel(db *database.Database) model {
 		log.Fatal(tx.Error)
 	}
 
-	return model{
+	return &model{
 		choices: tasks,
 		db:      db,
-		cursor:  0,
 		ti:      ti,
 		mode:    modeList,
 	}
@@ -107,10 +105,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.mode = modeList
 				return m, nil
-			case "esc":
+			case "ctrl+c", "esc":
 				m.mode = modeList
 				return m, nil
 			}
+
 			var cmd tea.Cmd
 			m.ti, cmd = m.ti.Update(msg)
 			return m, cmd
@@ -136,7 +135,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.db.Save(&m.choices[m.cursor])
 		case "a":
-			m.adding = true
+			m.mode = modeAdd
 			m.ti.Focus()
 		case "d":
 			m.db.Delete(&m.choices[m.cursor])
