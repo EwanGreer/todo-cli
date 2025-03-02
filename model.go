@@ -137,8 +137,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "a":
 			m.adding = true
 			m.ti.Focus()
+		case "d":
+			m.db.Delete(&m.choices[m.cursor])
+			if m.cursor > 0 {
+				m.cursor--
+			}
+			return m, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: m.width, Height: m.height}
+			}
 		}
-
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -167,7 +174,7 @@ func (m model) View() string {
 			items = append(items, item)
 		}
 
-		instructions := "Press `q` to quit. | Press `a` to add a new todo."
+		instructions := "Press `q` to quit | Press `a` to add a new todo | Press `d` to remove a todo"
 		view := lipgloss.JoinVertical(
 			lipgloss.Left,
 			header,
