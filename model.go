@@ -167,22 +167,26 @@ func (m model) View() string {
 			items = append(items, item)
 		}
 
-		instructions := "Press `q` to quit. | "
-		if m.adding {
-			instructions += "New Todo: " + m.ti.View()
-		} else {
-			instructions += "Press 'a' to add a new todo."
-		}
+		instructions := "Press `q` to quit. | Press `a` to add a new todo."
+		view := lipgloss.JoinVertical(
+			lipgloss.Left,
+			header,
+			lipgloss.JoinVertical(lipgloss.Left, items...),
+			instructions,
+		)
 
-		view := lipgloss.JoinVertical(lipgloss.Left, header, lipgloss.JoinVertical(lipgloss.Left, items...), instructions)
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
+		return m.float(view)
 	case modeAdd:
 		view := "Add New TODO:\n\n"
 		view += m.ti.View() + "\n\n"
 		view += "Press Enter to confirm, Esc to cancel.\n"
 
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
+		return m.float(view)
 	default:
 		return "Unknown mode"
 	}
+}
+
+func (m model) float(view string) string {
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
 }
