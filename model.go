@@ -18,9 +18,10 @@ const (
 	modeAdd
 )
 
-var textColor = lipgloss.Color("#FAFAFA")
-
 var (
+	textColor         = lipgloss.Color("#FAFAFA")
+	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	mainStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 2, 0, 1)
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(textColor).Padding(0, 1)
 	itemStyle   = lipgloss.NewStyle().Foreground(textColor)
@@ -127,7 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.choices)-1 {
 				m.cursor++
 			}
-		case "enter", " ":
+		case "enter", " ", "x":
 			if m.choices[m.cursor].Done {
 				m.choices[m.cursor].Done = false
 			} else {
@@ -170,7 +171,13 @@ func (m model) View() string {
 				checked = "x"
 			}
 
-			item := itemStyle.Render(fmt.Sprintf("%s [%s] %s", cursor, checked, choice.Name))
+			itemText := fmt.Sprintf("%s [%s] %s", cursor, checked, choice.Name)
+			var item string
+			if m.cursor == i {
+				item = selectedItemStyle.Render(itemText)
+			} else {
+				item = itemStyle.Render(itemText)
+			}
 			items = append(items, item)
 		}
 
