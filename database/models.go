@@ -2,6 +2,8 @@ package database
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,7 +21,13 @@ type Database struct {
 }
 
 func NewDatabase() (*Database, error) {
-	db, err := gorm.Open(sqlite.Open("task.db"), &gorm.Config{})
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	dbPath := filepath.Join(homeDir, "task.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +42,6 @@ func NewDatabase() (*Database, error) {
 func (d *Database) Save(task *Task) {
 	tx := d.DB.Save(task)
 	if tx.Error != nil {
-		log.Println(tx.Error) // TODO: use slog global logger out to a file
+		log.Println(tx.Error)
 	}
 }
