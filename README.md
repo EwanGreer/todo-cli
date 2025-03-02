@@ -7,7 +7,7 @@ A simple _Task Tracking_ TUI.
 > [!NOTE]
 > go 1.24 or later is required for installation
 
-RUN: `go get github.com/EwanGreer/todo-cli`
+RUN: `go install github.com/EwanGreer/todo-cli`
 
 Get started with: `todo-cli`
 
