@@ -1,12 +1,17 @@
 package config
 
 import (
+	"bytes"
+	"embed"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/viper"
 )
+
+//go:embed *.toml
+var configDir embed.FS
 
 type Config struct {
 	Database struct {
@@ -39,8 +44,16 @@ func NewConfig() *Config {
 
 	viper.SetConfigName("default")
 	viper.SetConfigType("toml")
-	viper.AddConfigPath("config")
-	_ = viper.ReadInConfig()
+
+	b, err := configDir.ReadFile("default.toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = viper.ReadConfig(bytes.NewReader(b))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	configDir := filepath.Join(home, ".config", "task-cli")
 	viper.AddConfigPath(configDir)
