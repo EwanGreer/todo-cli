@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,13 +21,13 @@ type Database struct {
 	*gorm.DB
 }
 
-func NewDatabase() (*Database, error) {
+func NewDatabase(name string) (*Database, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 
-	dbPath := filepath.Join(homeDir, "task.db")
+	dbPath := filepath.Join(homeDir, fmt.Sprintf("%s.db", name))
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, err
