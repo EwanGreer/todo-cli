@@ -116,6 +116,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "ctrl+c", "q":
+
 			return m, tea.Quit
 		case "up", "k":
 			m.decementCursor()

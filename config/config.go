@@ -1,12 +1,17 @@
 package config
 
 import (
+	"bytes"
+	"embed"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/viper"
 )
+
+//go:embed *.toml
+var configDir embed.FS
 
 type Config struct {
 	Database struct {
@@ -37,27 +42,25 @@ func NewConfig() *Config {
 		log.Fatal(err)
 	}
 
+	viper.SetConfigName("default")
+	viper.SetConfigType("toml")
+
+	b, err := configDir.ReadFile("default.toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = viper.ReadConfig(bytes.NewReader(b))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	configDir := filepath.Join(home, ".config", "task-cli")
 	viper.AddConfigPath(configDir)
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-
-	// TODO: default config should come from a file
-	viper.SetDefault("database.name", "task")
-
-	viper.SetDefault("keybinds.quit", "q")
-	viper.SetDefault("keybinds.down", "j")
-	viper.SetDefault("keybinds.up", "k")
-	viper.SetDefault("keybinds.confirm", "enter")
-	viper.SetDefault("keybinds.delete", "d")
-	viper.SetDefault("keybinds.help", "?")
-	viper.SetDefault("keybinds.add", "a")
-
-	viper.SetDefault("symbols.cursor", ">")
-	viper.SetDefault("symbols.checked", "x")
-
-	_ = viper.ReadInConfig()
+	_ = viper.MergeInConfig()
 
 	var cfg Config
 	_ = viper.Unmarshal(&cfg)
