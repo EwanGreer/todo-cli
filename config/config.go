@@ -37,27 +37,17 @@ func NewConfig() *Config {
 		log.Fatal(err)
 	}
 
+	viper.SetConfigName("default")
+	viper.SetConfigType("toml")
+	viper.AddConfigPath("config")
+	_ = viper.ReadInConfig()
+
 	configDir := filepath.Join(home, ".config", "task-cli")
 	viper.AddConfigPath(configDir)
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-
-	// TODO: default config should come from a file
-	viper.SetDefault("database.name", "task")
-
-	viper.SetDefault("keybinds.quit", "q")
-	viper.SetDefault("keybinds.down", "j")
-	viper.SetDefault("keybinds.up", "k")
-	viper.SetDefault("keybinds.confirm", "enter")
-	viper.SetDefault("keybinds.delete", "d")
-	viper.SetDefault("keybinds.help", "?")
-	viper.SetDefault("keybinds.add", "a")
-
-	viper.SetDefault("symbols.cursor", ">")
-	viper.SetDefault("symbols.checked", "x")
-
-	_ = viper.ReadInConfig()
+	_ = viper.MergeInConfig()
 
 	var cfg Config
 	_ = viper.Unmarshal(&cfg)

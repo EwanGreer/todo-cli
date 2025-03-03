@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/EwanGreer/todo-cli/config"
 	"github.com/EwanGreer/todo-cli/database"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
