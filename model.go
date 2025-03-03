@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -124,9 +125,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggleTaskMark()
 		case "a":
 			m.addTask()
+		case "e":
+			// edit task
 		case "d":
 			return m.deleteTask()
 		case "?":
+			// show help menu
+		case ".":
+			// show/hide completed tasks
+		case "@":
+			// show/hide command history
 		}
 	case tea.WindowSizeMsg:
 		m.updateWindowSize(msg)
@@ -138,6 +146,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	switch m.mode {
 	case modeList:
+		sort.Slice(m.choices, func(i, j int) bool {
+			return m.choices[i].CreatedAt.Before(m.choices[j].CreatedAt)
+		})
+
 		header := headerStyle.Render("Tasks:")
 		var items []string
 		for i, choice := range m.choices {

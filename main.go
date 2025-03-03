@@ -22,7 +22,6 @@ func main() {
 	}
 
 	cfg := config.NewConfig()
-	log.Println(cfg.Database.Name)
 
 	db, err := database.NewDatabase(cfg.Database.Name)
 	if err != nil {
