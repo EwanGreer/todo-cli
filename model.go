@@ -39,10 +39,10 @@ type model struct {
 }
 
 func initialModel(db *database.Database) *model {
-	ti := textinput.New()
-	ti.Placeholder = "Enter new todo..."
-	ti.CharLimit = 100
-	ti.Width = 30
+	textInput := textinput.New()
+	textInput.Placeholder = "Enter new todo..."
+	textInput.CharLimit = 100
+	textInput.Width = 30
 
 	var tasks []database.Task
 	tx := db.Find(&tasks)
@@ -53,45 +53,13 @@ func initialModel(db *database.Database) *model {
 	return &model{
 		choices:   tasks,
 		db:        db,
-		textInput: ti,
+		textInput: textInput,
 		mode:      modeList,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	return textinput.Blink
-}
-
-func (m *model) decementCursor() {
-	if m.cursor > 0 {
-		m.cursor--
-	}
-}
-
-func (m *model) incrementCursor() {
-	if m.cursor < len(m.choices)-1 {
-		m.cursor++
-	}
-}
-
-func (m *model) addTask() {
-	m.mode = modeAdd
-	m.textInput.Focus()
-}
-
-func (m *model) deleteTask() (tea.Model, tea.Cmd) {
-	m.db.Delete(&m.choices[m.cursor])
-	if m.cursor > 0 {
-		m.cursor--
-	}
-	return m, func() tea.Msg { // NOTE: this is used to force a screen update
-		return tea.WindowSizeMsg{Width: m.width, Height: m.height}
-	}
-}
-
-func (m *model) updateWindowSize(msg tea.WindowSizeMsg) {
-	m.width = msg.Width
-	m.height = msg.Height
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -105,18 +73,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch m.mode {
-		case modeList:
-			model, cmd := m.mapListModeActions(msg)
-			if cmd != nil {
-				return model, cmd
-			}
 		case modeAdd:
 			return m.mapAddModeActions(msg)
 		}
 
 		switch msg.String() {
 		case "ctrl+c", "q":
-
 			return m, tea.Quit
 		case "up", "k":
 			m.decementCursor()
@@ -199,31 +161,13 @@ func (m model) float(view string) string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
 }
 
-func (m model) mapListModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		for _, task := range m.choices {
-			tx := m.db.DB.Save(&task)
-			if tx.Error != nil {
-				continue
-			}
-		}
-		return m, tea.Quit
-	case "a":
-		m.mode = modeAdd
-		m.textInput.SetValue("")
-		m.textInput.Focus()
-	}
-	return nil, nil
-}
-
 func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if input := m.textInput.Value(); input != "" {
 			tx := m.db.DB.Save(&database.Task{Name: input})
 			if tx.Error != nil {
-				log.Println(tx.Error) // gracefully handle the error // maybe prompt the user?
+				log.Println(tx.Error)
 			}
 		}
 
@@ -246,4 +190,36 @@ func (m model) toggleTaskMark() {
 		m.choices[m.cursor].Done = true
 	}
 	m.db.Save(&m.choices[m.cursor])
+}
+
+func (m *model) decementCursor() {
+	if m.cursor > 0 {
+		m.cursor--
+	}
+}
+
+func (m *model) incrementCursor() {
+	if m.cursor < len(m.choices)-1 {
+		m.cursor++
+	}
+}
+
+func (m *model) addTask() {
+	m.mode = modeAdd
+	m.textInput.Focus()
+}
+
+func (m *model) deleteTask() (tea.Model, tea.Cmd) {
+	m.db.Delete(&m.choices[m.cursor])
+	if m.cursor > 0 {
+		m.cursor--
+	}
+	return m, func() tea.Msg { // NOTE: this is used to force a screen update
+		return tea.WindowSizeMsg{Width: m.width, Height: m.height}
+	}
+}
+
+func (m *model) updateWindowSize(msg tea.WindowSizeMsg) {
+	m.width = msg.Width
+	m.height = msg.Height
 }

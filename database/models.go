@@ -10,11 +10,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type List struct {
+	gorm.Model
+	Name  string
+	Tasks []Task
+}
+
 type Task struct {
 	gorm.Model
+	ListID      uint
 	Name        string
-	Description string // TODO: validate this is always at least X chars long
+	Description string
 	Done        bool
+}
+
+type TaskLink struct {
+	gorm.Model
+	SourceTaskID uint
+	SourceTask   Task `gorm:"foreignKey:SourceTaskID"`
+	TargetTaskID uint
+	TargetTask   Task `gorm:"foreignKey:TargetTaskID"`
+	State        string
 }
 
 type Database struct {
@@ -33,7 +49,7 @@ func NewDatabase(name string) (*Database, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Task{}); err != nil {
+	if err := db.AutoMigrate(&List{}, &Task{}, &TaskLink{}); err != nil {
 		return nil, err
 	}
 
