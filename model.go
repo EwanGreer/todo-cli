@@ -165,10 +165,13 @@ func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if input := m.textInput.Value(); input != "" {
-			tx := m.db.DB.Save(&database.Task{Name: input})
+			task := database.Task{Name: input}
+			tx := m.db.DB.Save(&task)
 			if tx.Error != nil {
 				log.Println(tx.Error)
 			}
+
+			m.choices = append(m.choices, task)
 		}
 
 		m.mode = modeList
@@ -214,6 +217,7 @@ func (m *model) deleteTask() (tea.Model, tea.Cmd) {
 	if m.cursor > 0 {
 		m.cursor--
 	}
+
 	return m, func() tea.Msg { // NOTE: this is used to force a screen update
 		return tea.WindowSizeMsg{Width: m.width, Height: m.height}
 	}
