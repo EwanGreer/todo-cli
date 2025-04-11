@@ -90,20 +90,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case modeAdd:
 			switch msg.String() {
 			case "enter":
+				var task database.Task
 				if input := m.ti.Value(); input != "" {
-					m.choices = append(m.choices, database.Task{
-						Name: input,
-					})
+					task.Name = input
 				}
 
-				for _, task := range m.choices {
-					tx := m.db.DB.Save(&task)
-					if tx.Error != nil {
-						continue
-					}
+				tx := m.db.DB.Save(&task)
+				if tx.Error != nil {
+					log.Println(tx.Error)
+					return m, nil
 				}
 
+				m.choices = append(m.choices, task)
 				m.mode = modeList
+
 				return m, nil
 			case "ctrl+c", "esc":
 				m.mode = modeList
@@ -117,7 +117,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "ctrl+c", "q":
-
 			return m, tea.Quit
 		case "up", "k":
 			if m.cursor > 0 {
