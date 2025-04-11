@@ -74,7 +74,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeAdd:
-			return m.mapAddModeActions(msg)
+			switch msg.String() {
+			case "enter":
+				var task database.Task
+				if input := m.ti.Value(); input != "" {
+					task.Name = input
+				}
+
+				tx := m.db.DB.Save(&task)
+				if tx.Error != nil {
+					log.Println(tx.Error)
+					return m, nil
+				}
+
+				m.choices = append(m.choices, task)
+				m.mode = modeList
+
+				return m, nil
+			case "ctrl+c", "esc":
+				m.mode = modeList
+				return m, nil
+			}
+
+			var cmd tea.Cmd
+			m.ti, cmd = m.ti.Update(msg)
+			return m, cmd
 		}
 
 		switch msg.String() {
