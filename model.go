@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -28,20 +29,20 @@ var (
 )
 
 type model struct {
-	choices []database.Task
-	db      *database.Database
-	cursor  int
-	width   int
-	height  int
-	mode    Mode
-	ti      textinput.Model
+	choices   []database.Task
+	db        *database.Database
+	cursor    int
+	width     int
+	height    int
+	mode      Mode
+	textInput textinput.Model
 }
 
 func initialModel(db *database.Database) *model {
-	ti := textinput.New()
-	ti.Placeholder = "Enter new todo..."
-	ti.CharLimit = 100
-	ti.Width = 30
+	textInput := textinput.New()
+	textInput.Placeholder = "Enter new todo..."
+	textInput.CharLimit = 100
+	textInput.Width = 30
 
 	var tasks []database.Task
 	tx := db.Find(&tasks)
@@ -50,10 +51,10 @@ func initialModel(db *database.Database) *model {
 	}
 
 	return &model{
-		choices: tasks,
-		db:      db,
-		ti:      ti,
-		mode:    modeList,
+		choices:   tasks,
+		db:        db,
+		textInput: textInput,
+		mode:      modeList,
 	}
 }
 
@@ -72,21 +73,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch m.mode {
-		case modeList:
-			switch msg.String() {
-			case "ctrl+c", "q":
-				for _, task := range m.choices {
-					tx := m.db.DB.Save(&task)
-					if tx.Error != nil {
-						continue
-					}
-				}
-				return m, tea.Quit
-			case "a":
-				m.mode = modeAdd
-				m.ti.SetValue("")
-				m.ti.Focus()
-			}
 		case modeAdd:
 			switch msg.String() {
 			case "enter":
@@ -119,35 +105,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.decementCursor()
 		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
-			}
+			m.incrementCursor()
 		case "enter", " ", "x":
-			if m.choices[m.cursor].Done {
-				m.choices[m.cursor].Done = false
-			} else {
-				m.choices[m.cursor].Done = true
-			}
-			m.db.Save(&m.choices[m.cursor])
+			m.toggleTaskMark()
 		case "a":
-			m.mode = modeAdd
-			m.ti.Focus()
+			m.addTask()
+		case "e":
+			// edit task
 		case "d":
-			m.db.Delete(&m.choices[m.cursor])
-			if m.cursor > 0 {
-				m.cursor--
-			}
-			return m, func() tea.Msg {
-				return tea.WindowSizeMsg{Width: m.width, Height: m.height}
-			}
+			return m.deleteTask()
+		case "?":
+			// show help menu
+		case ".":
+			// show/hide completed tasks
+		case "@":
+			// show/hide command history
 		}
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.updateWindowSize(msg)
 	}
 
 	return m, nil
@@ -156,17 +133,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	switch m.mode {
 	case modeList:
+		sort.Slice(m.choices, func(i, j int) bool {
+			return m.choices[i].CreatedAt.Before(m.choices[j].CreatedAt)
+		})
+
 		header := headerStyle.Render("Tasks:")
 		var items []string
 		for i, choice := range m.choices {
 			cursor := " "
 			if m.cursor == i {
-				cursor = ">"
+				cursor = ">" // TODO: from config
 			}
 
 			checked := " "
 			if choice.Done {
-				checked = "x"
+				checked = "x" // TODO: from config
 			}
 
 			itemText := fmt.Sprintf("%s [%s] %s", cursor, checked, choice.Name)
@@ -179,6 +160,7 @@ func (m model) View() string {
 			items = append(items, item)
 		}
 
+		// TODO: keybinds should be from config
 		instructions := "Press `q` to quit | Press `a` to add a new todo | Press `d` to remove a todo"
 		view := lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -190,15 +172,82 @@ func (m model) View() string {
 		return m.float(view)
 	case modeAdd:
 		view := "Add New TODO:\n\n"
-		view += m.ti.View() + "\n\n"
+		view += m.textInput.View() + "\n\n"
 		view += "Press Enter to confirm, Esc to cancel.\n"
 
 		return m.float(view)
-	default:
-		return "Unknown mode"
 	}
+
+	return "Unknown Mode"
 }
 
 func (m model) float(view string) string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
+}
+
+func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		if input := m.textInput.Value(); input != "" {
+			task := database.Task{Name: input}
+			tx := m.db.DB.Save(&task)
+			if tx.Error != nil {
+				log.Println(tx.Error)
+			}
+
+			m.choices = append(m.choices, task)
+		}
+
+		m.mode = modeList
+		return m, nil
+	case "ctrl+c", "esc":
+		m.mode = modeList
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m model) toggleTaskMark() {
+	if m.choices[m.cursor].Done {
+		m.choices[m.cursor].Done = false
+	} else {
+		m.choices[m.cursor].Done = true
+	}
+	m.db.Save(&m.choices[m.cursor])
+}
+
+func (m *model) decementCursor() {
+	if m.cursor > 0 {
+		m.cursor--
+	}
+}
+
+func (m *model) incrementCursor() {
+	if m.cursor < len(m.choices)-1 {
+		m.cursor++
+	}
+}
+
+func (m *model) addTask() {
+	m.mode = modeAdd
+	m.textInput.Focus()
+}
+
+func (m *model) deleteTask() (tea.Model, tea.Cmd) {
+	m.db.Delete(&m.choices[m.cursor])
+	if m.cursor > 0 {
+		m.cursor--
+	}
+
+	return m, func() tea.Msg { // NOTE: this is used to force a screen update
+		return tea.WindowSizeMsg{Width: m.width, Height: m.height}
+	}
+}
+
+func (m *model) updateWindowSize(msg tea.WindowSizeMsg) {
+	m.width = msg.Width
+	m.height = msg.Height
 }

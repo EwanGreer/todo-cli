@@ -1,0 +1,18 @@
+[database]
+name = "task"
+
+[keybinds]
+quit = "q"
+down = "j"
+up = "k"
+enter = "enter"
+help = "?"
+add = "a"
+
+[symbols]
+cursor = ">"
+checked = "x"
+
+[colors]
+text = "#FAFAFA"
+selected = "#FF5FAF"

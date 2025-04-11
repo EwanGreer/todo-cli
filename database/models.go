@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -9,30 +10,46 @@ import (
 	"gorm.io/gorm"
 )
 
+type List struct {
+	gorm.Model
+	Name  string
+	Tasks []Task
+}
+
 type Task struct {
 	gorm.Model
+	ListID      uint
 	Name        string
-	Description string // TODO: validate this is always at least X chars long
+	Description string
 	Done        bool
+}
+
+type TaskLink struct {
+	gorm.Model
+	SourceTaskID uint
+	SourceTask   Task `gorm:"foreignKey:SourceTaskID"`
+	TargetTaskID uint
+	TargetTask   Task `gorm:"foreignKey:TargetTaskID"`
+	State        string
 }
 
 type Database struct {
 	*gorm.DB
 }
 
-func NewDatabase() (*Database, error) {
+func NewDatabase(name string) (*Database, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 
-	dbPath := filepath.Join(homeDir, "task.db")
+	dbPath := filepath.Join(homeDir, fmt.Sprintf("%s.db", name))
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Task{}); err != nil {
+	if err := db.AutoMigrate(&List{}, &Task{}, &TaskLink{}); err != nil {
 		return nil, err
 	}
 
