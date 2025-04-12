@@ -6,13 +6,14 @@ import (
 	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
+	"github.com/EwanGreer/todo-cli/internal/status"
 	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type Mode int
+type Mode uint
 
 const (
 	modeList Mode = iota
@@ -29,20 +30,20 @@ var (
 )
 
 type model struct {
-	choices   []database.Task
-	db        *database.Database
-	cursor    int
-	width     int
-	height    int
-	mode      Mode
-	textInput textinput.Model
+	choices []database.Task
+	db      *database.Repository
+	cursor  int
+	width   int
+	height  int
+	mode    Mode
+	ti      textinput.Model
 }
 
-func initialModel(db *database.Database) *model {
-	textInput := textinput.New()
-	textInput.Placeholder = "Enter new todo..."
-	textInput.CharLimit = 100
-	textInput.Width = 30
+func initialModel(db *database.Repository) *model {
+	ti := textinput.New()
+	ti.Placeholder = "Enter new todo..."
+	ti.CharLimit = 100
+	ti.Width = 30
 
 	var tasks []database.Task
 	tx := db.Find(&tasks)
@@ -74,7 +75,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeAdd:
-			return m.mapAddModeActions(msg)
+			switch msg.String() {
+			case "enter":
+				var task *database.Task
+				if input := m.ti.Value(); input != "" {
+					task = database.NewTask(input, "", status.Ready)
+				}
+
+				tx := m.db.DB.Save(&task)
+				if tx.Error != nil {
+					log.Println(tx.Error)
+					return m, nil
+				}
+
+				m.choices = append(m.choices, *task)
+				m.mode = modeList
+
+				return m, nil
+			case "ctrl+c", "esc":
+				m.mode = modeList
+				return m, nil
+			}
+
+			var cmd tea.Cmd
+			m.ti, cmd = m.ti.Update(msg)
+			return m, cmd
 		}
 
 		switch msg.String() {
@@ -85,7 +110,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			m.incrementCursor()
 		case "enter", " ", "x":
-			m.toggleTaskMark()
+			if m.choices[m.cursor].Status.Is(status.Done) {
+				m.choices[m.cursor].Status = status.InProgress
+			} else {
+				m.choices[m.cursor].Status = status.Done
+			}
+			m.db.Save(&m.choices[m.cursor])
 		case "a":
 			m.addTask()
 		case "e":
@@ -122,8 +152,8 @@ func (m model) View() string {
 			}
 
 			checked := " "
-			if choice.Done {
-				checked = "x" // TODO: from config
+			if choice.Status.Is(status.Done) {
+				checked = "x"
 			}
 
 			itemText := fmt.Sprintf("%s [%s] %s", cursor, checked, choice.Name)
