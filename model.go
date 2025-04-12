@@ -5,13 +5,14 @@ import (
 	"log"
 
 	"github.com/EwanGreer/todo-cli/database"
+	"github.com/EwanGreer/todo-cli/internal/status"
 	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type Mode int
+type Mode uint
 
 const (
 	modeList Mode = iota
@@ -29,7 +30,7 @@ var (
 
 type model struct {
 	choices []database.Task
-	db      *database.Database
+	db      *database.Repository
 	cursor  int
 	width   int
 	height  int
@@ -37,7 +38,7 @@ type model struct {
 	ti      textinput.Model
 }
 
-func initialModel(db *database.Database) *model {
+func initialModel(db *database.Repository) *model {
 	ti := textinput.New()
 	ti.Placeholder = "Enter new todo..."
 	ti.CharLimit = 100
@@ -90,9 +91,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case modeAdd:
 			switch msg.String() {
 			case "enter":
-				var task database.Task
+				var task *database.Task
 				if input := m.ti.Value(); input != "" {
-					task.Name = input
+					task = database.NewTask(input, "", status.Ready)
 				}
 
 				tx := m.db.DB.Save(&task)
@@ -101,7 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
-				m.choices = append(m.choices, task)
+				m.choices = append(m.choices, *task)
 				m.mode = modeList
 
 				return m, nil
@@ -127,10 +128,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter", " ", "x":
-			if m.choices[m.cursor].Done {
-				m.choices[m.cursor].Done = false
+			if m.choices[m.cursor].Status.Is(status.Done) {
+				m.choices[m.cursor].Status = status.InProgress
 			} else {
-				m.choices[m.cursor].Done = true
+				m.choices[m.cursor].Status = status.Done
 			}
 			m.db.Save(&m.choices[m.cursor])
 		case "a":
@@ -165,7 +166,7 @@ func (m model) View() string {
 			}
 
 			checked := " "
-			if choice.Done {
+			if choice.Status.Is(status.Done) {
 				checked = "x"
 			}
 
