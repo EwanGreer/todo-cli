@@ -382,6 +382,10 @@ func (m *model) toggleTaskStatus() {
 
 func (m *model) deleteListCmd() tea.Cmd {
 	return func() tea.Msg {
+		if m.CurrentList().Name == "Default" {
+			return nil
+		}
+
 		cursor := m.containers[containerLists].cursor
 		if cursor < 0 || cursor >= len(m.containers[containerLists].items) {
 			return nil

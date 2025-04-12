@@ -25,8 +25,14 @@ func NewContainer(db *database.Repository) map[Container]*ContainerData {
 		log.Fatal(tx.Error)
 	}
 
-	var tasks []database.Task
-	tx = db.Find(&tasks)
+	if len(lists) == 0 {
+		lists = append(lists, database.List{
+			Name: "Default",
+		})
+		db.Create(&lists)
+	}
+
+	tasks := db.FindTasksForList(&lists[0])
 	if tx.Error != nil {
 		log.Fatal(tx.Error)
 	}
@@ -46,7 +52,7 @@ func NewContainer(db *database.Repository) map[Container]*ContainerData {
 	}
 
 	for _, task := range tasks {
-		tasksContainer.items = append(tasksContainer.items, &task)
+		tasksContainer.items = append(tasksContainer.items, task)
 	}
 
 	return map[Container]*ContainerData{
