@@ -191,40 +191,6 @@ func (m model) float(view string) string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(view))
 }
 
-func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "enter":
-		if input := m.ti.Value(); input != "" {
-			task := database.Task{Name: input}
-			tx := m.db.DB.Save(&task)
-			if tx.Error != nil {
-				log.Println(tx.Error)
-			}
-
-			m.choices = append(m.choices, task)
-		}
-
-		m.mode = modeList
-		return m, nil
-	case "ctrl+c", "esc":
-		m.mode = modeList
-		return m, nil
-	}
-
-	var cmd tea.Cmd
-	m.ti, cmd = m.ti.Update(msg)
-	return m, cmd
-}
-
-func (m model) toggleTaskMark() {
-	if m.choices[m.cursor].Status.Is(status.Done) {
-		m.choices[m.cursor].Status = status.InProgress
-	} else {
-		m.choices[m.cursor].Status = status.Done
-	}
-	m.db.Save(&m.choices[m.cursor])
-}
-
 func (m *model) decementCursor() {
 	if m.cursor > 0 {
 		m.cursor--
