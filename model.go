@@ -6,25 +6,12 @@ import (
 	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
+	"github.com/EwanGreer/todo-cli/internal/mode"
 	"github.com/EwanGreer/todo-cli/internal/status"
 	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-)
-
-type Mode uint
-
-type Container uint
-
-const (
-	modeList Mode = iota
-	modeAdd
-)
-
-const (
-	containerLists Container = iota
-	containerTasks
 )
 
 var (
@@ -40,205 +27,61 @@ type Item interface {
 	fmt.Stringer
 }
 
-type ContainerData struct {
-	items  []Item
-	cursor int
-}
-
 type model struct {
 	containers      map[Container]*ContainerData
 	db              *database.Repository
 	activeContainer Container
 	width           int
 	height          int
-	mode            Mode
+	mode            mode.Mode
 	addTaskTi       textinput.Model
 	addListTi       textinput.Model
+}
+
+func (m *model) CurrentListItem() Item {
+	c := m.containers[m.activeContainer]
+	return c.items[c.cursor]
 }
 
 func initialModel(db *database.Repository) *model {
 	addTaskTi := textinput.New()
 	addTaskTi.Placeholder = "Enter new todo..."
 	addTaskTi.CharLimit = 100
-	addTaskTi.Width = 30
+	addTaskTi.Width = 50
 
 	addListTi := textinput.New()
 	addListTi.Placeholder = "Enter a new list..."
 	addListTi.CharLimit = 100
-	addListTi.Width = 30
-
-	var lists []database.List
-	tx := db.Find(&lists)
-	if tx.Error != nil {
-		log.Fatal(tx.Error)
-	}
-
-	var tasks []database.Task
-	tx = db.Find(&tasks)
-	if tx.Error != nil {
-		log.Fatal(tx.Error)
-	}
-
-	// Initialize the containers
-	listsContainer := &ContainerData{
-		items:  make([]Item, 0),
-		cursor: 0,
-	}
-
-	tasksContainer := &ContainerData{
-		items:  make([]Item, 0),
-		cursor: 0,
-	}
-
-	for _, list := range lists {
-		listsContainer.items = append(listsContainer.items, &list)
-	}
-
-	for _, task := range tasks {
-		tasksContainer.items = append(tasksContainer.items, &task)
-	}
+	addListTi.Width = 50
 
 	return &model{
-		containers: map[Container]*ContainerData{
-			containerLists: listsContainer,
-			containerTasks: tasksContainer,
-		},
+		containers:      NewContainer(db),
 		db:              db,
 		addTaskTi:       addTaskTi,
-		mode:            modeList,
+		mode:            mode.ModeList,
 		activeContainer: containerLists,
 		addListTi:       addListTi,
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var tasks []database.Task
-	selectedList := m.containers[containerLists].items[m.containers[containerLists].cursor].(*database.List)
-	tx := m.db.Find(&tasks, "list_id = ?", selectedList.ID)
-	if tx.Error != nil {
-		log.Fatal(tx.Error)
-	}
-
-	newTasks := make([]Item, 0, len(tasks))
-	for i := range tasks {
-		newTasks = append(newTasks, &tasks[i])
-	}
-	m.containers[containerTasks].items = newTasks
-
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch m.mode {
-		case modeAdd:
-			switch msg.String() {
-			case "enter":
-				switch m.activeContainer {
-				case containerLists:
-					var list *database.List
-					if input := m.addListTi.Value(); input != "" {
-						list = database.NewList(input)
-					}
-
-					tx := m.db.DB.Save(&list)
-					if tx.Error != nil {
-						log.Println(tx.Error)
-						return m, nil
-					}
-
-					m.containers[containerLists].items = append(m.containers[containerLists].items, list)
-					m.mode = modeList
-
-					return m, nil
-				case containerTasks:
-					var task *database.Task
-					if input := m.addTaskTi.Value(); input != "" {
-						selectedList := m.containers[containerLists].items[m.containers[containerLists].cursor].(*database.List)
-						task = database.NewTask(input, "", status.Ready, selectedList.ID)
-					}
-					tx := m.db.DB.Save(&task)
-					if tx.Error != nil {
-						log.Println(tx.Error)
-						return m, nil
-					}
-					m.containers[containerTasks].items = append(m.containers[containerTasks].items, task)
-					m.mode = modeList
-					return m, nil
-				}
-			case "ctrl+c", "esc":
-				m.mode = modeList
-				return m, nil
-			}
-
-			var cmd tea.Cmd
-			switch m.activeContainer {
-			case containerLists:
-				m.addListTi, cmd = m.addListTi.Update(msg)
-			case containerTasks:
-				m.addTaskTi, cmd = m.addTaskTi.Update(msg)
-			}
-			return m, cmd
-		}
-
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k":
-			m.decementCursor()
-
-			selectedList := m.containers[containerLists].items[m.containers[containerLists].cursor].(*database.List)
-			tasks := m.db.FindTasksForList(selectedList)
-			items := make([]Item, len(tasks))
-			for i, t := range tasks {
-				items[i] = t
-			}
-			m.containers[containerTasks].items = items
-			return m, nil
-		case "down", "j":
-			m.incrementCursor()
-
-			selectedList := m.containers[containerLists].items[m.containers[containerLists].cursor].(*database.List)
-			tasks := m.db.FindTasksForList(selectedList)
-			items := make([]Item, len(tasks))
-			for i, t := range tasks {
-				items[i] = t
-			}
-			m.containers[containerTasks].items = items
-			return m, nil
-		case "h", "l":
-			if m.activeContainer == containerLists {
-				m.activeContainer = containerTasks
-			} else {
-				m.activeContainer = containerLists
-			}
-		case "enter", " ", "x":
-			task := m.containers[containerTasks].items[m.containers[containerTasks].cursor].(*database.Task)
-			if task.Status.Is(status.Done) {
-				task.Status = status.InProgress
-			} else {
-				task.Status = status.Done
-			}
-			m.db.Save(task)
-		case "a":
-			switch m.activeContainer {
-			case containerLists:
-				m.addList()
-			case containerTasks:
-				m.addTask()
-			}
-		}
+		return m.handleKeyMsg(msg)
 	case tea.WindowSizeMsg:
 		m.updateWindowSize(msg)
+		return m, nil
 	}
-
 	return m, nil
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	switch m.mode {
-	case modeList:
+	case mode.ModeList:
 		sort.Slice(m.containers[containerTasks].items, func(i, j int) bool {
 			return m.containers[containerTasks].items[i].(*database.Task).CreatedAt.Before(m.containers[containerTasks].items[j].(*database.Task).CreatedAt)
 		})
@@ -299,7 +142,7 @@ func (m model) View() string {
 		)
 
 		return m.float(listView, taskView)
-	case modeAdd:
+	case mode.ModeAdd:
 		var inputView string
 		switch m.activeContainer {
 		case containerLists:
@@ -316,8 +159,6 @@ func (m model) View() string {
 	return "Unknown Mode"
 }
 
-// float accepts a veriadic string of "columns"
-// each "column" will be given a border
 func (m model) float(views ...string) string {
 	var styledViews []string
 	for _, view := range views {
@@ -342,16 +183,190 @@ func (m *model) incrementCursor() {
 }
 
 func (m *model) addList() {
-	m.mode = modeAdd
+	m.mode = mode.ModeAdd
 	m.addListTi.Focus()
 }
 
 func (m *model) addTask() {
-	m.mode = modeAdd
+	m.mode = mode.ModeAdd
 	m.addTaskTi.Focus()
 }
 
 func (m *model) updateWindowSize(msg tea.WindowSizeMsg) {
 	m.width = msg.Width
 	m.height = msg.Height
+}
+
+type (
+	MsgError       string
+	MsgTaskCreated string
+)
+
+func (m *model) addTaskCmd() tea.Cmd {
+	return func() tea.Msg {
+		input := m.addTaskTi.Value()
+		if input == "" {
+			return nil
+		}
+		m.addListTi.Reset()
+
+		selectedList := m.CurrentList()
+		task := database.NewTask(input, "", status.Ready, selectedList.ID)
+
+		tx := m.db.DB.Save(&task)
+		if tx.Error != nil {
+			return MsgError(tx.Error.Error())
+		}
+
+		m.containers[containerTasks].items = append(m.containers[containerTasks].items, task)
+		m.mode = mode.ModeList
+
+		return MsgTaskCreated(fmt.Sprintf("Task %s created", task.Name))
+	}
+}
+
+func (m *model) addListCmd() tea.Cmd {
+	return func() tea.Msg {
+		input := m.addListTi.Value()
+		if input == "" {
+			return nil
+		}
+		m.addListTi.Reset()
+
+		list := database.NewList(input)
+
+		tx := m.db.DB.Save(list)
+		if tx.Error != nil {
+			log.Println(tx.Error)
+			return MsgError(tx.Error.Error())
+		}
+
+		m.containers[containerLists].items = append(m.containers[containerLists].items, list)
+		m.mode = mode.ModeList
+
+		return nil
+	}
+}
+
+func (m *model) CurrentList() *database.List {
+	if containerData, ok := m.containers[containerLists]; ok {
+		if containerData.cursor < len(containerData.items) {
+			if list, ok := containerData.items[containerData.cursor].(*database.List); ok {
+				return list
+			}
+		}
+	}
+	return nil
+}
+
+func (m *model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.mode == mode.ModeAdd {
+		return m.handleAddModeKey(msg)
+	}
+	return m.handleListModeKey(msg)
+}
+
+func (m *model) handleAddModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		switch m.activeContainer {
+		case containerLists:
+			return m, m.addListCmd()
+		case containerTasks:
+			return m, m.addTaskCmd()
+		}
+	case "ctrl+c", "esc":
+		m.mode = mode.ModeList
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	switch m.activeContainer {
+	case containerLists:
+		m.addListTi, cmd = m.addListTi.Update(msg)
+	case containerTasks:
+		m.addTaskTi, cmd = m.addTaskTi.Update(msg)
+	}
+	return m, cmd
+}
+
+func (m *model) handleListModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key := msg.String(); key {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+
+	case "up", "k":
+		m.handleUpKey()
+		return m, nil
+
+	case "down", "j":
+		m.handleDownKey()
+		return m, nil
+
+	case "h", "l":
+		m.toggleActiveContainer()
+		return m, nil
+
+	case "enter", " ", "x":
+		m.toggleTaskStatus()
+		return m, nil
+
+	case "a":
+		switch m.activeContainer {
+		case containerLists:
+			m.addList() // Synchronous action to switch mode or focus
+		case containerTasks:
+			m.addTask() // Synchronous action to switch mode or focus
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m *model) handleUpKey() {
+	switch m.activeContainer {
+	case containerLists:
+		m.decementCursor()
+		m.updateTasksFromCurrentList()
+	case containerTasks:
+		m.decementCursor()
+	}
+}
+
+func (m *model) handleDownKey() {
+	switch m.activeContainer {
+	case containerLists:
+		m.incrementCursor()
+		m.updateTasksFromCurrentList()
+	case containerTasks:
+		m.incrementCursor()
+	}
+}
+
+func (m *model) updateTasksFromCurrentList() {
+	selectedList := m.CurrentListItem().(*database.List)
+	tasks := m.db.FindTasksForList(selectedList)
+	items := make([]Item, len(tasks))
+	for i, t := range tasks {
+		items[i] = t
+	}
+	m.containers[containerTasks].items = items
+}
+
+func (m *model) toggleActiveContainer() {
+	if m.activeContainer == containerLists {
+		m.activeContainer = containerTasks
+	} else {
+		m.activeContainer = containerLists
+	}
+}
+
+func (m *model) toggleTaskStatus() {
+	task := m.containers[containerTasks].items[m.containers[containerTasks].cursor].(*database.Task)
+	if task.Status.Is(status.Done) {
+		task.Status = status.InProgress
+	} else {
+		task.Status = status.Done
+	}
+	m.db.Save(task)
 }
