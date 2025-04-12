@@ -38,3 +38,13 @@ func (d *Repository) Save(task *Task) {
 		log.Println(tx.Error)
 	}
 }
+
+func (r *Repository) FindTasksForList(list *List) []*Task {
+	var tasks []*Task
+	tx := r.DB.Where("list_id = ?", list.ID).Find(&tasks)
+	if tx.Error != nil {
+		log.Println(tx.Error)
+	}
+
+	return tasks
+}

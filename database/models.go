@@ -19,16 +19,26 @@ type Task struct {
 	ListID      uint
 }
 
+func (t Task) String() string {
+	return t.Name
+}
+
+func (l List) String() string {
+	return l.Name
+}
+
 func NewList(name string) *List {
 	return &List{
-		Name: name,
+		Name:  name,
+		Tasks: []Task{},
 	}
 }
 
-func NewTask(name string, desc string, status status.Status) *Task {
+func NewTask(name string, desc string, status status.Status, parentID uint) *Task {
 	return &Task{
 		Name:        name,
 		Description: desc,
 		Status:      status,
+		ListID:      parentID,
 	}
 }
