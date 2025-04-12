@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
@@ -210,13 +211,14 @@ func (m *model) addTask() {
 
 func (m *model) deleteTask() (tea.Model, tea.Cmd) {
 	m.db.Delete(&m.choices[m.cursor])
+
+	m.choices = slices.Delete(m.choices, m.cursor, m.cursor+1)
+
 	if m.cursor > 0 {
 		m.cursor--
 	}
 
-	return m, func() tea.Msg { // NOTE: this is used to force a screen update
-		return tea.WindowSizeMsg{Width: m.width, Height: m.height}
-	}
+	return m, nil
 }
 
 func (m *model) updateWindowSize(msg tea.WindowSizeMsg) {
