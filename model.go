@@ -52,10 +52,10 @@ func initialModel(db *database.Repository) *model {
 	}
 
 	return &model{
-		choices:   tasks,
-		db:        db,
-		textInput: textInput,
-		mode:      modeList,
+		choices: tasks,
+		db:      db,
+		ti:      ti,
+		mode:    modeList,
 	}
 }
 
@@ -178,7 +178,7 @@ func (m model) View() string {
 		return m.float(view)
 	case modeAdd:
 		view := "Add New TODO:\n\n"
-		view += m.textInput.View() + "\n\n"
+		view += m.ti.View() + "\n\n"
 		view += "Press Enter to confirm, Esc to cancel.\n"
 
 		return m.float(view)
@@ -194,7 +194,7 @@ func (m model) float(view string) string {
 func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
-		if input := m.textInput.Value(); input != "" {
+		if input := m.ti.Value(); input != "" {
 			task := database.Task{Name: input}
 			tx := m.db.DB.Save(&task)
 			if tx.Error != nil {
@@ -212,15 +212,15 @@ func (m model) mapAddModeActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.textInput, cmd = m.textInput.Update(msg)
+	m.ti, cmd = m.ti.Update(msg)
 	return m, cmd
 }
 
 func (m model) toggleTaskMark() {
-	if m.choices[m.cursor].Done {
-		m.choices[m.cursor].Done = false
+	if m.choices[m.cursor].Status.Is(status.Done) {
+		m.choices[m.cursor].Status = status.InProgress
 	} else {
-		m.choices[m.cursor].Done = true
+		m.choices[m.cursor].Status = status.Done
 	}
 	m.db.Save(&m.choices[m.cursor])
 }
@@ -239,7 +239,7 @@ func (m *model) incrementCursor() {
 
 func (m *model) addTask() {
 	m.mode = modeAdd
-	m.textInput.Focus()
+	m.ti.Focus()
 }
 
 func (m *model) deleteTask() (tea.Model, tea.Cmd) {

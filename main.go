@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/EwanGreer/todo-cli/config"
 	"github.com/EwanGreer/todo-cli/database"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
@@ -21,9 +20,7 @@ func main() {
 		defer f.Close()
 	}
 
-	cfg := config.NewConfig()
-
-	db, err := database.NewDatabase(cfg.Database.Name)
+	db, err := database.NewDatabase()
 	if err != nil {
 		log.Fatal(err)
 	}
