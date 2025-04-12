@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 
 	"github.com/EwanGreer/todo-cli/database"
@@ -314,11 +315,19 @@ func (m *model) handleListModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "a":
 		switch m.activeContainer {
 		case containerLists:
-			m.addList() // Synchronous action to switch mode or focus
+			m.addList()
 		case containerTasks:
-			m.addTask() // Synchronous action to switch mode or focus
+			m.addTask()
 		}
 		return m, nil
+
+	case "d":
+		switch m.activeContainer {
+		case containerLists:
+			return m, m.deleteListCmd()
+		case containerTasks:
+			return m, m.deleteTaskCmd()
+		}
 	}
 	return m, nil
 }
@@ -344,12 +353,12 @@ func (m *model) handleDownKey() {
 }
 
 func (m *model) updateTasksFromCurrentList() {
-	selectedList := m.CurrentListItem().(*database.List)
-	tasks := m.db.FindTasksForList(selectedList)
+	tasks := m.db.FindTasksForList(m.CurrentList())
 	items := make([]Item, len(tasks))
 	for i, t := range tasks {
 		items[i] = t
 	}
+
 	m.containers[containerTasks].items = items
 }
 
@@ -362,11 +371,83 @@ func (m *model) toggleActiveContainer() {
 }
 
 func (m *model) toggleTaskStatus() {
-	task := m.containers[containerTasks].items[m.containers[containerTasks].cursor].(*database.Task)
+	task := m.CurrentTask()
 	if task.Status.Is(status.Done) {
 		task.Status = status.InProgress
 	} else {
 		task.Status = status.Done
 	}
 	m.db.Save(task)
+}
+
+func (m *model) deleteListCmd() tea.Cmd {
+	return func() tea.Msg {
+		cursor := m.containers[containerLists].cursor
+		if cursor < 0 || cursor >= len(m.containers[containerLists].items) {
+			return nil
+		}
+
+		list, ok := m.containers[containerLists].items[cursor].(*database.List)
+		if !ok || list == nil {
+			return nil
+		}
+
+		tx := m.db.Delete(list)
+		if tx.Error != nil {
+			return MsgError(tx.Error.Error())
+		}
+
+		m.containers[containerLists].items = removeItem(m.containers[containerLists].items, cursor)
+		if m.containers[containerLists].cursor >= len(m.containers[containerLists].items) && len(m.containers[containerLists].items) > 0 {
+			m.containers[containerLists].cursor = len(m.containers[containerLists].items) - 1
+		}
+
+		if len(m.containers[containerLists].items) > 0 {
+			selectedList := m.CurrentListItem().(*database.List)
+			tasks := m.db.FindTasksForList(selectedList)
+			items := make([]Item, len(tasks))
+			for i, t := range tasks {
+				items[i] = t
+			}
+			m.containers[containerTasks].items = items
+		} else {
+			m.containers[containerTasks].items = []Item{}
+		}
+
+		return "yay"
+	}
+}
+
+func (m *model) deleteTaskCmd() tea.Cmd {
+	return func() tea.Msg {
+		cursor := m.containers[containerTasks].cursor
+		if cursor < 0 || cursor >= len(m.containers[containerTasks].items) {
+			return nil
+		}
+
+		task, ok := m.containers[containerTasks].items[cursor].(*database.Task)
+		if !ok || task == nil {
+			return nil
+		}
+
+		tx := m.db.Delete(task)
+		if tx.Error != nil {
+			return MsgError(tx.Error.Error())
+		}
+
+		m.containers[containerTasks].items = removeItem(m.containers[containerTasks].items, cursor)
+		if m.containers[containerTasks].cursor >= len(m.containers[containerTasks].items) && len(m.containers[containerTasks].items) > 0 {
+			m.containers[containerTasks].cursor = len(m.containers[containerTasks].items) - 1
+		}
+
+		return "yay"
+	}
+}
+
+func removeItem(slice []Item, index int) []Item {
+	return slices.Delete(slice, index, index+1)
+}
+
+func (m *model) CurrentTask() *database.Task {
+	return m.containers[containerTasks].items[m.containers[containerTasks].cursor].(*database.Task)
 }
