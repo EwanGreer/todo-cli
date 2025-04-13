@@ -1,0 +1,20 @@
+[env]
+BIN_NAME = "todo"
+
+[tools]
+go = "1.24"
+staticcheck = "latest"
+golangci-lint = "latest"
+
+[tasks.dev]
+description = "build and run the application"
+run = "mise run run"
+depends = ["build"]
+
+[tasks.run]
+description = "run the application"
+run = "./bin/${BIN_NAME}"
+
+[tasks.build]
+description = "build the application"
+run = "go build -o ./bin/${BIN_NAME} ."

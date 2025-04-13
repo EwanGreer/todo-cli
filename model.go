@@ -209,7 +209,6 @@ func (m *model) addTaskCmd() tea.Cmd {
 		if input == "" {
 			return nil
 		}
-		m.addListTi.Reset()
 
 		selectedList := m.CurrentList()
 		task := database.NewTask(input, "", status.Ready, selectedList.ID)
