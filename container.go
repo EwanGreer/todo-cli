@@ -13,6 +13,17 @@ const (
 	containerTasks
 )
 
+func (c Container) String() string {
+	if c == containerLists {
+		return "List"
+	}
+	if c == containerTasks {
+		return "Task"
+	}
+
+	return ""
+}
+
 type ContainerData struct {
 	items  []Item
 	cursor int
