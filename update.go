@@ -187,7 +187,7 @@ func (m *model) handleUpKey() {
 	switch m.activeContainer {
 	case containerLists:
 		m.decementCursor()
-		m.updateTasksFromCurrentList()
+		m.updateTasksForCurrentList()
 	case containerTasks:
 		m.decementCursor()
 	}
@@ -197,17 +197,23 @@ func (m *model) handleDownKey() {
 	switch m.activeContainer {
 	case containerLists:
 		m.incrementCursor()
-		m.updateTasksFromCurrentList()
+		m.updateTasksForCurrentList()
 	case containerTasks:
 		m.incrementCursor()
 	}
 }
 
-func (m *model) updateTasksFromCurrentList() {
+func (m *model) updateTasksForCurrentList() {
 	tasks := m.db.FindTasksForList(m.CurrentList())
 	items := make([]Item, len(tasks))
 	for i, t := range tasks {
 		items[i] = t
+	}
+
+	cursor := m.containers[containerTasks].cursor
+	if len(items) > 0 && cursor >= len(items) {
+		cursor = len(items) - 1
+		m.containers[containerTasks].cursor = cursor
 	}
 
 	m.containers[containerTasks].items = items
