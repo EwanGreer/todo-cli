@@ -21,7 +21,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 	case tea.WindowSizeMsg:
 		m.updateWindowSize(msg)
-		return m, nil
 	}
 	return m, nil
 }
@@ -61,8 +60,8 @@ func (m *model) addTaskCmd() tea.Cmd {
 		}
 		m.addTaskTi.Reset()
 
-		selectedList := m.CurrentList()
-		task := database.NewTask(input, "", status.Ready, selectedList.ID)
+		// TODO: need to add description box
+		task := database.NewTask(input, "", status.Ready, m.CurrentList().ID)
 
 		tx := m.db.DB.Save(&task)
 		if tx.Error != nil {
