@@ -10,6 +10,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// FIX: This whole function needs some attention.
+// Its very hard to follow, and there is logic in here that shouldn't be.
+//
+// NOTE: I would consider pulling all the rendering logic for both views out into other functions,
+// and leaving `view` to handle routing
 func (m *model) View() string {
 	switch m.mode {
 	case mode.ModeList:
@@ -90,6 +95,7 @@ func (m *model) View() string {
 			)
 		}
 
+		// TODO: this could do with improvement
 		taskViewStyle := lipgloss.NewStyle().Height(m.height / 2).Width(m.width / 2).PaddingLeft(2).BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
 		listViewStyle := lipgloss.NewStyle().Height(m.height / 2).Width(m.width / 4).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
 
