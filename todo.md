@@ -4,5 +4,8 @@ List of tasks to be completed during development
 
 ## List
 
-- [ ] Render Lists to screen
-- [ ] Clear ti when screen closes
+- [x] Render Lists to screen
+- [x] Clear ti when screen closes
+- [ ] Add search via `/`
+- [ ] Add rename functionality
+- [ ] Add descriptions to rendered tasks - or a way to open the description

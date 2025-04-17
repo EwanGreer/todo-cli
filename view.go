@@ -10,6 +10,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// FIX: This whole function needs some attention.
+// Its very hard to follow, and there is logic in here that shouldn't be.
+//
+// NOTE: I would consider pulling all the rendering logic for both views out into other functions,
+// and leaving `view` to handle routing
 func (m *model) View() string {
 	switch m.mode {
 	case mode.ModeList:
@@ -56,9 +61,10 @@ func (m *model) View() string {
 			items = append(items, item)
 		}
 
+		highlightStyle := headerStyle.Foreground(lipgloss.Color("#FF5FAF"))
+
 		var listView string
 		if m.activeContainer == containerLists {
-			highlightStyle := headerStyle.Foreground(lipgloss.Color("#FF5FAF"))
 			listView = lipgloss.JoinVertical(
 				lipgloss.Left,
 				highlightStyle.Render("Lists:"),
@@ -74,24 +80,27 @@ func (m *model) View() string {
 			)
 		}
 
-		instructions := "Press `q` to quit | Press `a` to add a new todo | Press `d` to delete a todo"
 		var taskView string
 		if m.activeContainer == containerTasks {
-			highlightStyle := headerStyle.Foreground(lipgloss.Color("#FF5FAF"))
 			taskView = lipgloss.JoinVertical(
 				lipgloss.Left,
 				highlightStyle.Render("Tasks:"),
 				lipgloss.JoinVertical(lipgloss.Left, items...),
-				instructions,
 			)
 		} else {
 			taskView = lipgloss.JoinVertical(
 				lipgloss.Left,
 				headerStyle.Render("Tasks:"),
 				lipgloss.JoinVertical(lipgloss.Left, items...),
-				instructions,
 			)
 		}
+
+		// TODO: this could do with improvement
+		taskViewStyle := lipgloss.NewStyle().Height(m.height / 2).Width(m.width / 2).PaddingLeft(2).BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+		listViewStyle := lipgloss.NewStyle().Height(m.height / 2).Width(m.width / 4).BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+
+		taskView = taskViewStyle.Render(taskView)
+		listView = listViewStyle.Render(listView)
 
 		return m.float(listView, taskView)
 	case mode.ModeAdd:
@@ -112,12 +121,9 @@ func (m *model) View() string {
 }
 
 func (m model) float(views ...string) string {
-	var styledViews []string
-	for _, view := range views {
-		styledViews = append(styledViews, mainStyle.Render(view))
-	}
-
-	combinedView := lipgloss.JoinHorizontal(lipgloss.Center, styledViews...)
+	instructions := "`q` to quit | `a` to add | `d` to delete"
+	combinedView := lipgloss.JoinHorizontal(lipgloss.Center, views...)
+	combinedView = lipgloss.JoinVertical(lipgloss.Center, combinedView, instructions)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainStyle.Render(combinedView))
 }
